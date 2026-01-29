@@ -24,10 +24,19 @@ from GridBuilderStrat import GridBuilderStrat
 from ScoutStrat import ScoutStrat
 from StarterStrat import StarterStrat
     
-# B. Register strategy class names in team1/team2 tuples below, 1-5 ants per team
-team1 = (RandomStrat, SmarterRandomStrat, StraightHomeStrat, ScoutStrat, RandomStrat)
-team2 = (GridBuilderStrat, SmarterRandomStrat, HorizontalStrat, VerticalStrat, RandomStrat)
+# B. Register strategy class names in team1/team2 tuples below, 3-5 ants per team
+team1 = (RandomStrat, SmarterRandomStrat, StraightHomeStrat, VerticalStrat, HorizontalStrat)
+team2 = (GridBuilderStrat, SmarterRandomStrat, HorizontalStrat, ScoutStrat, RandomStrat)
 DEBUG = False # Change this to True to get more detailed errors from ant strategies
+
+# C. Create relevant error-handling measures
+class UnequalTeamsError (Exception):
+    """Raised when teams do not have the same number of ants."""
+    pass
+
+class AntCountError (Exception):
+    """ Raised when there are too few or too many ants in a team."""
+    pass
 
 # --- Begin Game ---
 
@@ -40,8 +49,22 @@ EMPTY = '.'
 WALL = '#'
 NORTH_HILL = '@'
 SOUTH_HILL = 'X'
-NORTH_SYMS = ["A", "B", "C", "D", "E"]
-SOUTH_SYMS = ["F", "G", "H", "I", "J"]
+ANTS_COUNT = len(team1)
+if (len(team1) != len(team2)):
+    raise UnequalTeamsError ("Teams do not have an equal number of ants.")
+NORTH_SYMS = []
+SOUTH_SYMS = []
+if (ANTS_COUNT == 3):
+    NORTH_SYMS = ["A", "B", "C"]
+    SOUTH_SYMS = ["D", "E", "F"]
+elif (ANTS_COUNT == 4):
+    NORTH_SYMS = ["A", "B", "C", "D"]
+    SOUTH_SYMS = ["E", "F", "G", "H"]
+elif (ANTS_COUNT == 5):
+    NORTH_SYMS = ["A", "B", "C", "D", "E"]
+    SOUTH_SYMS = ["F", "G", "H", "I", "J"]
+else:
+    raise AntCountError ("Teams do not have between 3 to 5 ants.")
 
 class Cell:
     '''Cell in the game matrix.
@@ -177,7 +200,7 @@ def generate_game_config():
 def load_save_file(filename):
     """Load saved game data from a file.
 
-    Trusts that map is valid format, with walls, 10 ants, and 2 anthills.
+    Trusts that map is valid format, with walls, 6-10 ants, and 2 anthills.
 
     Returns:
         Dict[str, int or str] of game data with following keys:
@@ -323,8 +346,20 @@ def construct_map(config):
             bottom_hill = cols-(int((cols)/2))-1
         else:
             bottom_hill = cols-(int((cols)/2))
-        team1_starting = {'A': (3,1), 'B': (6,1), 'C': (top_hill,1), 'D': (cols-7,1), 'E': (cols-4,1)}
-        team2_starting = {'F': (3,rows-2), 'G': (6,rows-2), 'H': (bottom_hill, rows-2), 'I': (cols-7,rows-2), 'J': (cols-4,rows-2)}
+
+        match ANTS_COUNT:
+            case 3:
+                team1_starting = {'A': (4,1), 'B': (top_hill,1), 'C': (cols-5,1)}
+                team2_starting = {'D': (4,rows-2), 'E': (bottom_hill,rows-2), 'F': (cols-5,rows-2)}
+            case 4:
+                team1_starting = {'A': (3,1), 'B': (7,1), 'C': (cols-8,1), 'D': (cols-4,1)}
+                team2_starting = {'E': (3,rows-2), 'F': (7,rows-2), 'G': (cols-8,rows-2), 'H': (cols-4,rows-2)}
+            case 5:
+                team1_starting = {'A': (3,1), 'B': (6,1), 'C': (top_hill,1), 'D': (cols-7,1), 'E': (cols-4,1)}
+                team2_starting = {'F': (3,rows-2), 'G': (6,rows-2), 'H': (bottom_hill,rows-2), 'I': (cols-7,rows-2), 'J': (cols-4,rows-2)}
+            case _:
+                team1_starting = {'A': (3,1), 'B': (6,1), 'C': (top_hill,1), 'D': (cols-7,1), 'E': (cols-4,1)}
+                team2_starting = {'F': (3,rows-2), 'G': (6,rows-2), 'H': (bottom_hill,rows-2), 'I': (cols-7,rows-2), 'J': (cols-4,rows-2)}
 
     initialize_ants(team1, team1_starting, team2, team2_starting, len(matrix), len(matrix[0]))
     place_ants(matrix, ants)

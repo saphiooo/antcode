@@ -2,19 +2,21 @@
 Players code the behavior of ants that compete in teams to bring food back to their anthill.
 
 ## Introduction
-Each team has 1-4 ants, which are placed on a grid. At the end of 200 rounds, whichever team has dropped the most food at their anthill wins. Ants have the ability to move, get food, drop food, and pass messages to their teammates.
+Each team has 3-5 ants, which are placed on a grid. At the end of 200 rounds, whichever team has dropped the most food at their anthill wins. Ants have the ability to move, get food, drop food, and pass messages to their teammates.
 
 ### The Map
 The map is randomly generated each round with 20-24 rows and columns.
 It's printed to the console using the following symbols:
 
-| Symbol         | Meaning       |
-| :------------- | :------------- |
-| #              | Wall           |
-| 1-9            | Food pile      |
-| .              | Empty          |
-| A-D, @         | North team ants & anthill |
-| E-H, X         | South team ants & anthill |
+| Symbol          | Meaning        |
+| :-------------  | :------------- |
+| #               | Wall           |
+| 1-9             | Food pile      |
+| .               | Empty          |
+| @ 		  | North anthill  |
+| X		  | South anthill  |
+| A-C, [A-D, A-E] | North team of 3-5 ants |
+| D-F, [E-H, F-J] | South team of 3-5 ants |
 
 ### Ant Commands
 Ants have four moves they can make on their turn:
@@ -52,7 +54,8 @@ This class is fully documented, so see `AntStrategy.py` for more details about t
 ## Running the Simulation
 First, add an import to the list of `AntStrategy` subclass imports in `main.py` to import your class.
 Then, find the two tuples called `team1` and `team2`.
-Change the contents of these so that they're the names of the 1-5 AntStrategy classes you want on each team.
+Change the contents of these so that they're the names of the 3-5 AntStrategy classes you want on each team.
+Each team must have the same number of ants. 
 If using CodeHS, click Run! If using something else, execute `main.py` (on the commandline: `$ python3 main.py`).
 
 ### Saving and Loading a Map from a File
