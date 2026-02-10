@@ -25,18 +25,9 @@ from ScoutStrat import ScoutStrat
 from StarterStrat import StarterStrat
     
 # B. Register strategy class names in team1/team2 tuples below, 3-5 ants per team
-team1 = (RandomStrat, SmarterRandomStrat, StraightHomeStrat, VerticalStrat, HorizontalStrat)
-team2 = (GridBuilderStrat, SmarterRandomStrat, HorizontalStrat, ScoutStrat, RandomStrat)
+team1 = (GridBuilderStrat, RandomStrat, SmarterRandomStrat, StraightHomeStrat, HorizontalStrat)
+team2 = (RandomStrat, VerticalStrat, SmarterRandomStrat, HorizontalStrat, ScoutStrat)
 DEBUG = False # Change this to True to get more detailed errors from ant strategies
-
-# C. Create relevant error-handling measures
-class UnequalTeamsError (Exception):
-    """Raised when teams do not have the same number of ants."""
-    pass
-
-class AntCountError (Exception):
-    """ Raised when there are too few or too many ants in a team."""
-    pass
 
 # --- Begin Game ---
 
@@ -49,22 +40,8 @@ EMPTY = '.'
 WALL = '#'
 NORTH_HILL = '@'
 SOUTH_HILL = 'X'
-ANTS_COUNT = len(team1)
-if (len(team1) != len(team2)):
-    raise UnequalTeamsError ("Teams do not have an equal number of ants.")
-NORTH_SYMS = []
-SOUTH_SYMS = []
-if (ANTS_COUNT == 3):
-    NORTH_SYMS = ["A", "B", "C"]
-    SOUTH_SYMS = ["D", "E", "F"]
-elif (ANTS_COUNT == 4):
-    NORTH_SYMS = ["A", "B", "C", "D"]
-    SOUTH_SYMS = ["E", "F", "G", "H"]
-elif (ANTS_COUNT == 5):
-    NORTH_SYMS = ["A", "B", "C", "D", "E"]
-    SOUTH_SYMS = ["F", "G", "H", "I", "J"]
-else:
-    raise AntCountError ("Teams do not have between 3 to 5 ants.")
+NORTH_SYMS = ["A", "B", "C", "D", "E"]
+SOUTH_SYMS = ["F", "G", "H", "I", "J"]
 
 class Cell:
     '''Cell in the game matrix.
@@ -128,6 +105,7 @@ class Ant:
     def __repr__(self):
         return self.symbol
 
+# utility functions
 def is_open_cell(matrix, x, y, ant=''):
     """Check if a cell in matrix is in bounds and not a wall."""
     if (x > 0 and x < len(matrix) and y > 0 and y < len(matrix[0]) and not matrix[x][y].wall):
@@ -137,14 +115,15 @@ def is_open_cell(matrix, x, y, ant=''):
     
     return False
     
-def initialize_ants(team1_strats, team1_locs, team2_strats, team2_locs, rows, cols):
+def initialize_ants(team1_strats, team1_locs, team2_strats, team2_locs, rows, cols, config):
     """Instantiate ant classes for each team.
     
     Populate ants list and dictionary of Ant->matrixSymbol mappings. Takes two 
     lists for each team: AntStrategy class names and inital (x, y) positions
     """
+    
     # Team 1
-    for Strat, sym in zip(team1_strats, NORTH_SYMS):
+    for Strat, sym in zip(team1_strats, NORTH_SYMS[:config['ants_count']]):
         try:
             ant_strat = Strat(rows, cols, NORTH_HILL)
         except Exception as e:
@@ -155,7 +134,7 @@ def initialize_ants(team1_strats, team1_locs, team2_strats, team2_locs, rows, co
         ants.append(Ant(ant_strat, team1_locs[sym][0], team1_locs[sym][1], 1, sym))
 
     # Team 2
-    for Strat, sym in zip(team2_strats, SOUTH_SYMS):
+    for Strat, sym in zip(team2_strats, SOUTH_SYMS[:config['ants_count']]):
         try:
             ant_strat = Strat(rows, cols, SOUTH_HILL)
         except Exception as e:
@@ -165,18 +144,20 @@ def initialize_ants(team1_strats, team1_locs, team2_strats, team2_locs, rows, co
             continue
         ants.append(Ant(ant_strat, team2_locs[sym][0], team2_locs[sym][1], 2, sym))
 
-def generate_game_config():
+def generate_game_config(team1_strats, team2_strats):
     """Prompt user for game configuration options, including saved map file
 
     Returns: dict[str, boolean or str], with the following keys:
         'fast_forward': boolean, continue to end without stopping
         'load_map': boolean, use saved map
         'save_file': str, filename if load_map is True
+        'ants_count': int, number of ants in each team
     """
     config = {
-            'fast_forward': False,
-            'load_map': False,
-            'save_file': None,
+        'fast_forward': False,
+        'load_map': False,
+        'save_file': None,
+        'ants_count': 0,
     }
 
     fast_forward = input("Run to the end without pausing? (yes/<enter>) ")
@@ -195,6 +176,21 @@ def generate_game_config():
             print("File not found, using new map: " + filepath)
             config['load_map'] = False
 
+    if (len(team1_strats) == len(team2_strats)):
+        if (len(team1_strats) <= 5 and len(team1_strats) >= 3):
+            config['ants_count'] = len(team1_strats)
+        else:
+            raise ValueError("Teams must have between 3-5 ants (inclusive).")
+    else:
+        raise ValueError("Teams must have the same number of ants.")
+
+    # uncomment these lines if varying number of active players per team per game
+    # ants_count = input("Number of ants on each team? (3-5) ")
+    # while(not ants_count.isnumeric() or int(ants_count) > 5 or int(ants_count) < 3):
+    #     print("Teams must have between 3 to 5 ants.")
+    #     ants_count = input("Number of ants on each team? (3-5) ")
+    # config['ants_count'] = int(ants_count)
+            
     return config
 
 def load_save_file(filename):
@@ -347,13 +343,13 @@ def construct_map(config):
         else:
             bottom_hill = cols-(int((cols)/2))
 
-        match ANTS_COUNT:
+        match config['ants_count']:
             case 3:
                 team1_starting = {'A': (4,1), 'B': (top_hill,1), 'C': (cols-5,1)}
-                team2_starting = {'D': (4,rows-2), 'E': (bottom_hill,rows-2), 'F': (cols-5,rows-2)}
+                team2_starting = {'F': (4,rows-2), 'G': (bottom_hill,rows-2), 'H': (cols-5,rows-2)}
             case 4:
                 team1_starting = {'A': (3,1), 'B': (7,1), 'C': (cols-8,1), 'D': (cols-4,1)}
-                team2_starting = {'E': (3,rows-2), 'F': (7,rows-2), 'G': (cols-8,rows-2), 'H': (cols-4,rows-2)}
+                team2_starting = {'F': (3,rows-2), 'G': (7,rows-2), 'H': (cols-8,rows-2), 'I': (cols-4,rows-2)}
             case 5:
                 team1_starting = {'A': (3,1), 'B': (6,1), 'C': (top_hill,1), 'D': (cols-7,1), 'E': (cols-4,1)}
                 team2_starting = {'F': (3,rows-2), 'G': (6,rows-2), 'H': (bottom_hill,rows-2), 'I': (cols-7,rows-2), 'J': (cols-4,rows-2)}
@@ -361,7 +357,7 @@ def construct_map(config):
                 team1_starting = {'A': (3,1), 'B': (6,1), 'C': (top_hill,1), 'D': (cols-7,1), 'E': (cols-4,1)}
                 team2_starting = {'F': (3,rows-2), 'G': (6,rows-2), 'H': (bottom_hill,rows-2), 'I': (cols-7,rows-2), 'J': (cols-4,rows-2)}
 
-    initialize_ants(team1, team1_starting, team2, team2_starting, len(matrix), len(matrix[0]))
+    initialize_ants(team1, team1_starting, team2, team2_starting, len(matrix), len(matrix[0]), config)
     place_ants(matrix, ants)
     return matrix
 
@@ -530,27 +526,37 @@ def game_loop(matrix, ants, config):
                 proposed_moves[loc] = a
             else:
                 conflict_ant = proposed_moves[loc]
-                print("Collision between " + a.symbol + " and " + conflict_ant.symbol)
-                # Return this ant to original position, resolving any chains of conflicts
-                proposed_moves[loc] = None # No one gets to be here
-                current_ant = a
-                while current_ant and (current_ant.x, current_ant.y) in proposed_moves and proposed_moves[(current_ant.x, current_ant.y)]:
-                    next_current_ant = proposed_moves[(current_ant.x, current_ant.y)]
-                    proposed_moves[(current_ant.x, current_ant.y)] = current_ant
-                    current_ant = next_current_ant
-                else:
-                    if current_ant:
+                if (type(proposed_moves[loc]) == list): # existing collision; previous ants already moved back
+                    for conflict_ant_i in proposed_moves[loc]:
+                        print("Collision between " + a.symbol + " and " + conflict_ant_i.symbol) 
+                    # return this ant to original position
+                    proposed_moves[loc].append(a)
+                    proposed_moves[(a.x, a.y)] = a
+                else: # new collision
+                    print("Collision between " + a.symbol + " and " + conflict_ant.symbol)
+                    # Return this ant to original position, resolving any chains of conflicts
+                    proposed_moves[loc] = None # No one gets to be here
+                    current_ant = a
+                    while current_ant and (current_ant.x, current_ant.y) in proposed_moves and proposed_moves[(current_ant.x, current_ant.y)]:
+                        next_current_ant = proposed_moves[(current_ant.x, current_ant.y)]
                         proposed_moves[(current_ant.x, current_ant.y)] = current_ant
+                        current_ant = next_current_ant
+                    else:
+                        if current_ant:
+                            proposed_moves[(current_ant.x, current_ant.y)] = current_ant
 
-                # Return conflicting ant to original position, resolving conflicts
-                while conflict_ant and (conflict_ant.x, conflict_ant.y) in proposed_moves and proposed_moves[(conflict_ant.x, conflict_ant.y)]:
-                    next_conflict_ant = proposed_moves[(conflict_ant.x, conflict_ant.y)]
-                    proposed_moves[(conflict_ant.x, conflict_ant.y)] = conflict_ant
-                    conflict_ant = next_conflict_ant
-                else:
-                    if conflict_ant:
+                    # Return conflicting ant to original position, resolving conflicts
+                    while conflict_ant and (conflict_ant.x, conflict_ant.y) in proposed_moves and proposed_moves[(conflict_ant.x, conflict_ant.y)]:
+                        next_conflict_ant = proposed_moves[(conflict_ant.x, conflict_ant.y)]
                         proposed_moves[(conflict_ant.x, conflict_ant.y)] = conflict_ant
-
+                        conflict_ant = next_conflict_ant
+                    else:
+                        if conflict_ant:
+                            proposed_moves[(conflict_ant.x, conflict_ant.y)] = conflict_ant
+                            
+                    # record all ants in conflict at this location for scenario of multi-way collisions
+                    proposed_moves[loc] = [a, conflict_ant]
+        
         # Resolve proposed gets
         for (target_x, target_y), aList in proposed_gets.items():
             if matrix[target_x][target_y].food > 0 and matrix[target_x][target_y].food >= len(aList): #here
@@ -562,7 +568,7 @@ def game_loop(matrix, ants, config):
 
         # Update arena & redraw screen
         for loc, a in proposed_moves.items():
-            if a: # May be none if it was the site of a movement conflict
+            if (type(a) != list): # May be a list if it was the site of a movement conflict
                 matrix[a.x][a.y].ant = None
                 a.x = loc[0]
                 a.y = loc[1]
@@ -646,7 +652,7 @@ def prompt_save_map(initial_matrix):
 if __name__ == '__main__':
     random.seed()
     ants = []
-    config = generate_game_config()
+    config = generate_game_config(team1, team2)
     matrix = construct_map(config)
     initial_matrix = matrix_to_str_list(matrix)
     game_loop(matrix, ants, config)
