@@ -15,8 +15,8 @@ It's printed to the console using the following symbols:
 | .               | Empty          |
 | @ 		  | North anthill  |
 | X		  | South anthill  |
-| A-C, [A-D, A-E] | North team of 3-5 ants |
-| D-F, [E-H, F-J] | South team of 3-5 ants |
+| A-C, [D, E]	  | North team of 3-5 ants |
+| F-H, [I, J]	  | South team of 3-5 ants |
 
 ### Ant Commands
 Ants have four moves they can make on their turn:
@@ -25,7 +25,7 @@ Ants have four moves they can make on their turn:
 3. DROP [direction]: If carrying food, it will be dropped at the coordinates in the direction given.
 4. GET [direction]: If there is food in the direction given, pick up the food. Ants can carry one food at a time.
 
-All ants move simutaneously. If the actions of two or more ants conflict (possible with moving or GET), these ants' actions won't be executed. Raising an exception, taking too long, or returning an invalid command will result in your ant being eliminated. The game will print a hint of what went wrong.
+All ants move simutaneously. If the actions of two or more ants conflict (possible with moving or GET), these ants' actions won't be executed. If two or more ants attempt to drop food on a cell, resulting in the cell having more than 9 food items at a time, these ants' actions also won't be executed. Raising an exception, taking too long, or returning an invalid command will result in your ant being eliminated. The game will print a hint of what went wrong.
 
 The supported cardinal directions are as follows:
 |                |                 |                |
@@ -48,6 +48,11 @@ Each `AntStrategy` has three methods for you to complete, which will be called i
 1. `receive_info(messages)`: The game will pass a list of messages sent by your teammates in the last round. Parse & handle these messages. What messages are sent and their format is up to your team!
 2. `one_step()`: Using the state information about your ant passed in as arguments, decide on and return the next move for your ant.
 3. `send_info()`: Return any messages you want to send this round.
+
+All ants also have some information about the state of the game:
+- Grid size: The dimensions of the grid, including the outer walls, will be passed to the ant upon initialization.
+- Anthill symbol: The symbol for the ant's anthill, either `'X'` or `'@'`, will be passed to the ant upon initialization.
+- Current coordinates: The ant's current position on the matrix will be passed to the ant every round in the `one_step()` method.
 
 This class is fully documented, so see `AntStrategy.py` for more details about these methods and how the game interacts with the class.
 
@@ -72,6 +77,7 @@ Always enter *relative* paths to the files you are saving from or loading
 ### Ant Vision
 One of the pieces of state information passed to the `one_step()` method is the ant's `vision`.
 This is a 3x3 list representing the locations in the map immediately under and around the ant with the ant at the center (`vision[1][1]`).
+Ant vision prioritizes showing items and objects in the vicinity in the priority Ant > Food or Anthill or Wall > Empty space, meaning vision will not display the anthill or food in a cell if another ant is occupying that space. 
 Each index will have one of symbols in the key above, indicating what is around the ant in the map.
 (0,0) is northwest of the ant.
 Ants can "see" one unit in all directions.
@@ -79,33 +85,38 @@ Ants can "see" one unit in all directions.
 ### Message Passing
 Each round, your ant will have the ability to receive messages sent by your team in the prior round and send messages.
 Your team will need to decide what information you want to communicate and how to format your messages.
-Suppose your team wants to share whether they're carrying food at the end of each round.
+
+At the beginning of each round, the game will call `receive_info()` on your ant. It will pass a `list` of messages from your teammates that were sent in the previous round.
+Parse each message according to how your team decides to send information, and update your ant's state if needed.
+For instance, suppose your team wants to share whether they're carrying food at the end of each round.
 You might choose the message format `"ANT1 FOOD " + str(food)`.
+Then, if all members of your team follow this format,
+at the start of each round, your ant may receive a list of messages such as, `["ANT1 FOOD False", "ANT2 FOOD True", "ANT3 FOOD False"]`.
+
 `GridBuilderStrat` and `ScoutStrat` send messages about what they've discovered on the map in the format `str(x) + " " + str(y) + " " + item`.
 Each of these examples is a string, but the messages don't have to be strings.
 `SmarterRandomStrat` isn't very creative and just sends the word `"message"` to its teammates.
-If you try to run GridBuilderStrat and SmarterRandomStrat together, you will see an error because they try to parse each others' messages incorrectly!
+If you try to run `GridBuilderStrat` and `SmarterRandomStrat` together, you will see an error because they try to parse each others' messages incorrectly!
 
-At the beginning of each round, the game will call `receive_info` on your ant. It will pass a `list` of messages from your teammates.
-Parse each message according to the your team's format and update your ant's state if needed.
-For example, `GridBuilderStrat` uses the messages to fill in its internal map of the playing field and even has some basic checks to avoid causing an exception if a message is the wrong format.
+`GridBuilderStrat` uses the messages to fill in its internal map of the playing field and even has some basic checks to avoid causing an exception if a message is the wrong format.
 ```python3
 def receive_info(self, messages):
     for m in messages:
         words = m.split()
         if len(words) != 3:
-            print("Message incorrectly formatted: " + m);
+            print("Message incorrectly formatted: " + m)
             continue
         x, y, agent = words
         self.grid[int(x)][int(y)] = agent
 ```
 
-Then, the game will call the `one_step` method.
-Do not call `send_info` yourself from `one_step`; it's called by the game after `one_step`.
-Since you may want to share information learned during `one_step` with your teammates, one solution is to create an instance variable for outgoing messages, e.g. `self.outbox = []`.
+Then, the game will call the `one_step()` method.
+Do not call `send_info()` yourself from `one_step()`; it's called by the game after `one_step()`.
+Since you may want to share information learned during `one_step` with your teammates,
+one solution is to create an instance variable for outgoing messages, e.g. `self.outbox = []`.
 
-In `send_info`, your ant can return a `list` of messages.
-Here's an example where an ant shares if it's carrying food. Note that this method still returns a list even though there's only one message.
+Finally, in `send_info()`, your ant must return a `list` of messages.
+Here's an example where an ant shares if it's carrying food. Note that this method still returns a list even though there's only one message. It may return an empty list if there are no messages to send.
 ```python3
 def send_info(self):
     '''Send whether or not I'm carrying food'''

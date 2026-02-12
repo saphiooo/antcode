@@ -23,10 +23,11 @@ from StraightHomeStrat import StraightHomeStrat
 from GridBuilderStrat import GridBuilderStrat
 from ScoutStrat import ScoutStrat
 from StarterStrat import StarterStrat
+from FoodHoardingStrat import FoodHoardingStrat
     
 # B. Register strategy class names in team1/team2 tuples below, 3-5 ants per team
 team1 = (GridBuilderStrat, RandomStrat, SmarterRandomStrat, StraightHomeStrat, HorizontalStrat)
-team2 = (RandomStrat, VerticalStrat, SmarterRandomStrat, HorizontalStrat, ScoutStrat)
+team2 = (RandomStrat, HorizontalStrat, StarterStrat, HorizontalStrat, ScoutStrat)
 DEBUG = False # Change this to True to get more detailed errors from ant strategies
 
 # --- Begin Game ---
@@ -474,7 +475,9 @@ def game_loop(matrix, ants, config):
 
         # Parse moves
         proposed_moves = {}
+        conflict_sites = {}
         proposed_gets = {}
+        proposed_drops = {}
         for a, move in moves.items():
             loc = (a.x, a.y)
             
@@ -512,9 +515,11 @@ def game_loop(matrix, ants, config):
                                 team1_points += 1
                             elif cell.anthill == SOUTH_HILL:
                                 team2_points += 1
-
                         else:
-                            cell.food += 1
+                            if (target_x, target_y) in proposed_drops:
+                                proposed_drops[(target_x, target_y)].append(a)
+                            else:
+                                proposed_drops[(target_x, target_y)] = [a]
 
             elif move[0] != "PASS":
                 print("Invalid move from " + a.symbol + ": " + str(move))
@@ -522,41 +527,41 @@ def game_loop(matrix, ants, config):
                 continue
 
             # Attempt to place this ant in next phase of simulation. Ants in conflict must go back
+            print("current ant:", a)
+            
             if loc not in proposed_moves:
                 proposed_moves[loc] = a
             else:
                 conflict_ant = proposed_moves[loc]
-                if (type(proposed_moves[loc]) == list): # existing collision; previous ants already moved back
-                    for conflict_ant_i in proposed_moves[loc]:
-                        print("Collision between " + a.symbol + " and " + conflict_ant_i.symbol) 
-                    # return this ant to original position
-                    proposed_moves[loc].append(a)
-                    proposed_moves[(a.x, a.y)] = a
-                else: # new collision
-                    print("Collision between " + a.symbol + " and " + conflict_ant.symbol)
-                    # Return this ant to original position, resolving any chains of conflicts
-                    proposed_moves[loc] = None # No one gets to be here
-                    current_ant = a
-                    while current_ant and (current_ant.x, current_ant.y) in proposed_moves and proposed_moves[(current_ant.x, current_ant.y)]:
-                        next_current_ant = proposed_moves[(current_ant.x, current_ant.y)]
-                        proposed_moves[(current_ant.x, current_ant.y)] = current_ant
-                        current_ant = next_current_ant
-                    else:
-                        if current_ant:
-                            proposed_moves[(current_ant.x, current_ant.y)] = current_ant
 
-                    # Return conflicting ant to original position, resolving conflicts
-                    while conflict_ant and (conflict_ant.x, conflict_ant.y) in proposed_moves and proposed_moves[(conflict_ant.x, conflict_ant.y)]:
-                        next_conflict_ant = proposed_moves[(conflict_ant.x, conflict_ant.y)]
+                # Record conflict site
+                print("loc", loc)
+                print(conflict_sites)
+                if (loc in conflict_sites):
+                    conflict_sites[loc].append(a.symbol)
+                else:
+                    conflict_sites[loc] = [a.symbol, conflict_ant.symbol]
+                
+                # Return this ant to original position, resolving any chains of conflicts
+                proposed_moves[loc] = None # No one gets to be here
+                current_ant = a
+                while current_ant and (current_ant.x, current_ant.y) in proposed_moves and proposed_moves[(current_ant.x, current_ant.y)]:
+                    next_current_ant = proposed_moves[(current_ant.x, current_ant.y)]
+                    proposed_moves[(current_ant.x, current_ant.y)] = current_ant
+                    current_ant = next_current_ant
+                else:
+                    if current_ant:
+                        proposed_moves[(current_ant.x, current_ant.y)] = current_ant
+
+                # Return conflicting ant to original position, resolving conflicts
+                while conflict_ant and (conflict_ant.x, conflict_ant.y) in proposed_moves and proposed_moves[(conflict_ant.x, conflict_ant.y)]:
+                    next_conflict_ant = proposed_moves[(conflict_ant.x, conflict_ant.y)]
+                    proposed_moves[(conflict_ant.x, conflict_ant.y)] = conflict_ant
+                    conflict_ant = next_conflict_ant
+                else:
+                    if conflict_ant:
                         proposed_moves[(conflict_ant.x, conflict_ant.y)] = conflict_ant
-                        conflict_ant = next_conflict_ant
-                    else:
-                        if conflict_ant:
-                            proposed_moves[(conflict_ant.x, conflict_ant.y)] = conflict_ant
-                            
-                    # record all ants in conflict at this location for scenario of multi-way collisions
-                    proposed_moves[loc] = [a, conflict_ant]
-        
+                
         # Resolve proposed gets
         for (target_x, target_y), aList in proposed_gets.items():
             if matrix[target_x][target_y].food > 0 and matrix[target_x][target_y].food >= len(aList): #here
@@ -566,12 +571,30 @@ def game_loop(matrix, ants, config):
             else: ## insufficient food
                 print("Invalid GET in " + a.symbol + ": " + str(move))
 
+        # Resolve proposed drops
+        for (target_x, target_y), aList in proposed_drops.items():
+            if (matrix[target_x][target_y].food < 9 - len(aList)):
+                matrix[target_x][target_y].food += len(aList)
+            else: ## too much food on a tile
+                for a in aList:
+                    a.food = True ## don't allow ant to drop here
+                    print("Invalid DROP in " + a.symbol + ": " + str(move))                
+                
         # Update arena & redraw screen
         for loc, a in proposed_moves.items():
-            if (type(a) != list): # May be a list if it was the site of a movement conflict
+            if (a): # May be none if it was the site of a movement conflict
                 matrix[a.x][a.y].ant = None
                 a.x = loc[0]
                 a.y = loc[1]
+
+        # Notify user of collisions
+        for loc, aList in conflict_sites.items():
+            if (len(aList) == 2):
+                print("Ants " + aList[0] + " and " + aList[1] + " collided.")
+            elif (len(aList) > 2):
+                print("Ants " + ", ".join(aList[:-1]) + ", and " + aList[-1] + " collided.")
+            else:
+                print("Something went wrong.")  
 
         place_ants(matrix, ants)
         print_map(matrix)
