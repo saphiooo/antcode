@@ -24,7 +24,7 @@ class HorizontalStrat(AntStrategy):
                 self.direction = "WEST"
                 return self.direction
         elif self.direction == "WEST":
-            if x > 0:
+            if x > 1:
                 return self.direction
             else:
                 self.direction = "EAST"
