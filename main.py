@@ -23,7 +23,6 @@ from StraightHomeStrat import StraightHomeStrat
 from GridBuilderStrat import GridBuilderStrat
 from ScoutStrat import ScoutStrat
 from StarterStrat import StarterStrat
-from FoodHoardingStrat import FoodHoardingStrat
     
 # B. Register strategy class names in team1/team2 tuples below, 3-5 ants per team
 team1 = (GridBuilderStrat, RandomStrat, SmarterRandomStrat, StraightHomeStrat, HorizontalStrat)
@@ -106,6 +105,28 @@ class Ant:
     def __repr__(self):
         return self.symbol
 
+# game analytics - to be completed
+'''
+class Analytics:
+    def __init__(self, ant):
+        self.ant = ant
+        self.actions = {"alive": 0, "dist": 0}
+        self.food = {"picked": 0, "dropped": 0, "dropped_home": 0}
+        self.conflicts = {"ants": 0, "food": 0, "walls": 0}
+
+    def ant_die (self, round):
+        self.actions["alive"] = round
+
+    def update_dist (self):
+        self.actions["dist"] += 1
+
+    def update_food (self, dest):
+        self.actions[dest] += 1
+
+    def update_conf (self, conf):
+        self.conflicts[conf] += 1        
+'''
+        
 # utility functions
 def is_open_cell(matrix, x, y, ant=''):
     """Check if a cell in matrix is in bounds and not a wall."""
@@ -527,7 +548,6 @@ def game_loop(matrix, ants, config):
                 continue
 
             # Attempt to place this ant in next phase of simulation. Ants in conflict must go back
-            print("current ant:", a)
             
             if loc not in proposed_moves:
                 proposed_moves[loc] = a
@@ -535,8 +555,6 @@ def game_loop(matrix, ants, config):
                 conflict_ant = proposed_moves[loc]
 
                 # Record conflict site
-                print("loc", loc)
-                print(conflict_sites)
                 if (loc in conflict_sites):
                     conflict_sites[loc].append(a.symbol)
                 else:

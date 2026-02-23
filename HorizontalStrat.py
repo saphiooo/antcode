@@ -18,7 +18,7 @@ class HorizontalStrat(AntStrategy):
     def one_step(self, x, y, vision, food):
         '''Return next move, changing direction at grid boundaries'''
         if self.direction == "EAST":
-            if x < self.max_x:
+            if x < self.max_x - 1:
                 return self.direction
             else:
                 self.direction = "WEST"
